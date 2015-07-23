@@ -24,6 +24,7 @@ process.source = cms.Source(
   # fileNames = cms.untracked.vstring('file:/mnt/hadoop/cmsprod/00165B45-82E6-E311-B68D-002590AC4FEC.root'),
   fileNames = cms.untracked.vstring('file:/scratch5/snarayan/00BA30CE-9001-E511-AA08-0025905A60D0.root')
   #skipEvents=cms.untracked.uint32(657)
+  #eventsToProcess = cms.untracked.VEventRange('1:event_number')
 )
 process.source.inputCommands = cms.untracked.vstring(
   "keep *",

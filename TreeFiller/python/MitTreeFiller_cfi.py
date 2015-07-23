@@ -13,7 +13,9 @@ MitTreeFiller = cms.EDAnalyzer("FillMitTree",
     'Trigger',
     'MCEventInfo',
     'MCParticles',
-    'MCVertexes',
+    'MCVertexes'
+    
+    """
     'PileupInfo',
     'PileupEnergyDensity',
     'EvtSelData',
@@ -63,6 +65,7 @@ MitTreeFiller = cms.EDAnalyzer("FillMitTree",
     'TCMet',
     'HPSTaus',
     'DCASig'
+    """
   ),
 
   TreeWriter = cms.untracked.PSet(
