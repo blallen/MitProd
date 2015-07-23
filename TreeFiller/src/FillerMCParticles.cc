@@ -177,6 +177,8 @@ void FillerMCParticles::FillDataBlock(const edm::Event      &event,
  
       // loop over all genparticles and copy their information
       unsigned iPart = 0;
+      unsigned nDaughters;
+      printf("Filling Gen Particle Map\n");
       for (auto&& inPart : genParticles) {
         mithep::MCParticle *mcPart = mcParticles_->AddNew();
 
@@ -197,7 +199,25 @@ void FillerMCParticles::FillDataBlock(const edm::Event      &event,
 
         reco::GenParticleRef ref(hGenPProduct, iPart);
         aodGenMap_->Add(ref, mcPart);
-        
+	
+	if (inPart.pdgId() != mcPart->PdgId()) {
+	  nDaughters = inPart.numberOfDaughters();
+	  printf("genPart=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+		 iPart, inPart.pdgId(), inPart.status(), nDaughters, 1, 0, 
+		 inPart.pt(), inPart.eta(), inPart.phi());
+	  printf("mcPart        ");
+	  mcPart->Print(TString("l"));
+	}
+
+	MCParticle *mcMapPart = aodGenMap_->GetMit(ref);
+	
+	if (mcMapPart->PdgId() != mcPart->PdgId()){
+	  printf("mcPart        ");
+	  mcPart->Print(TString("l"));
+	  printf("mcMapPart     ");
+	  mcPart->Print(TString("l"));
+	}
+	
         ++iPart;
       }
     }
@@ -400,44 +420,68 @@ void FillerMCParticles::ResolveLinks(const edm::Event      &event,
 
       // loop over all genparticles and copy their information
       unsigned iPart = 0;
+      Bool_t isTau = false;
+      printf("\nResolving Gen Particle Links\n");
       for (auto&& inPart : genParticles) {
+	isTau = false;
+	// if (TMath::Abs(inPart.pdgId()) == 15) isTau = true;
         unsigned nDaughters = inPart.numberOfDaughters();
-	printf("genPart=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
-	       iPart, inPart.pdgId(), inPart.status(), inPart.numberOfDaughters(), 1., 0., 
+	if (isTau) printf("genPart=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+	       iPart, inPart.pdgId(), inPart.status(), nDaughters, 1, 0, 
 	       inPart.pt(), inPart.eta(), inPart.phi());
+	
+	
+        if (nDaughters != 0) {
+          // continue;
+	  
+	  reco::GenParticleRef ref(hGenPProduct, iPart);
+	  MCParticle *mcMother = aodGenMap_->GetMit(ref);
+	  if (inPart.pdgId() != mcMother->PdgId()) {
+	    printf("genPart=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+		   iPart, inPart.pdgId(), inPart.status(), nDaughters, 1, 0, 
+		   inPart.pt(), inPart.eta(), inPart.phi());
+	    unsigned refDaughters = ref->numberOfDaughters();
+	    printf("genref =%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+		   iPart, ref->pdgId(), ref->status(), refDaughters, 1, 0, 
+		   ref->pt(), ref->eta(), ref->phi());
+	    printf("mcPart        ");
+	    mcMother->Print(TString("l"));
+	    reco::GenParticleRef backref = aodGenMap_->GetEdm(mcMother);
+	    unsigned backDaughters = backref->numberOfDaughters();
+	    printf("backref=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n\n", 
+		   iPart, backref->pdgId(), backref->status(), backDaughters, 1, 0, 
+		   backref->pt(), backref->eta(), backref->phi());
+	  }
+	  
+	  if (isTau) mcMother->Print(TString("l"));
+	  
+	  // set mother decay vertex
+	  reco::Candidate const* genDaughter = inPart.daughter(0);
+	  unsigned nDaughterDaughters = genDaughter->numberOfDaughters();
+	  if (isTau) printf("genDaught=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+			    0, genDaughter->pdgId(), genDaughter->status(), nDaughterDaughters, 1, 0, 
+			    genDaughter->pt(), genDaughter->eta(), genDaughter->phi());
+	  
+	  mcMother->SetVertex(genDaughter->vx(), genDaughter->vy(), genDaughter->vz());
+	  
+	  for (unsigned iD = 0; iD < nDaughters; ++iD) {
+	    genDaughter = inPart.daughter(iD);
+	    nDaughterDaughters = genDaughter->numberOfDaughters();
+	    if (isTau) printf("genDaught=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
+			      iD, genDaughter->pdgId(), genDaughter->status(), nDaughterDaughters, 1, 0, 
+			      genDaughter->pt(), genDaughter->eta(), genDaughter->phi());
 
-        if (nDaughters == 0)
-          continue;
-
-        reco::GenParticleRef ref(hGenPProduct, iPart);
-        MCParticle *mcMother = aodGenMap_->GetMit(ref);
-	mcMother->Print(TString("l"));
-
-        // set mother decay vertex
-        reco::Candidate const* genDaughter = inPart.daughter(0);
-	printf("genDaught=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
-	       0, genDaughter->pdgId(), genDaughter->status(), genDaughter->numberOfDaughters(), 1, 0, 
-	       genDaughter->pt(), genDaughter->eta(), genDaughter->phi());
-
-        mcMother->SetVertex(genDaughter->vx(), genDaughter->vy(), genDaughter->vz());
-
-        for (unsigned iD = 0; iD < nDaughters; ++iD) {
-	  genDaughter = inPart.daughterRef(iD);
-	  printf("genDaught=%5d id=%5d st=%2d nd=%3d gen=%d sim=%d pt=%.3f eta=%.3f phi=%.3f\n", 
-		 iD, genDaughter->pdgId(), genDaughter->status(), genDaughter->numberOfDaughters(), 1, 0, 
-		 genDaughter->pt(), genDaughter->eta(), genDaughter->phi());
-
-        mcMother->SetVertex(genDaughter->vx(), genDaughter->vy(), genDaughter->vz());
-
-          MCParticle *mcDaughter = aodGenMap_->GetMit(inPart.daughterRef(iD));
-	  mcDaughter->Print();
-          // set mother-daughter links
-          mcMother->AddDaughter(mcDaughter);
-          if (!mcDaughter->HasMother())
+	    mcMother->SetVertex(genDaughter->vx(), genDaughter->vy(), genDaughter->vz());
+	    
+	    MCParticle *mcDaughter = aodGenMap_->GetMit(inPart.daughterRef(iD));
+	    if (isTau) mcDaughter->Print();
+	    // set mother-daughter links
+	    mcMother->AddDaughter(mcDaughter);
+	    if (!mcDaughter->HasMother())
             mcDaughter->SetMother(mcMother);
-	  mcDaughter->Print()
-        }
-
+	    if (isTau) mcDaughter->Print();
+	  } 
+	}
         ++iPart;
       }
     }
